@@ -1,7 +1,11 @@
 import datetime 
 from zoneinfo import ZoneInfo
 from google.adk.agents import LlmAgent
+from google.adk.tools import google_search
 from .joke_agent import joke_agent
+from google.genai import types
+from google.adk.code_executors import BuiltInCodeExecutor
+from google.adk.tools import agent_tool
 
 def get_weather(city: str) -> dict:
     """
@@ -29,13 +33,28 @@ def get_weather(city: str) -> dict:
 
 def get_current_time(city: str, timezone: str) -> dict:
     """
-    This returns the current time in a city in the format "YYYY-MM-DD HH:MM:SS"
+    Get the current time for a specified city using its timezone.
+
+    Returns the current time in the format "YYYY-MM-DD HH:MM:SS TZ±HHMM" 
+    (e.g. "2024-02-14 13:45:30 IST+0530"). Currently only supports Mumbai and Delhi.
 
     Args:
-        city(str): The city to get the current time for.
-        timezone(str): The timezone identifier for the city.
+        city (str): The city to get the current time for. Must be either "Mumbai" or "Delhi" (case-insensitive).
+        timezone (str): The timezone identifier for the city (e.g. "Asia/Kolkata"). Must be a valid IANA timezone name.
+
     Returns:
-        dict: A dictionary containing status and response or error message
+        dict: A dictionary containing:
+            - On success: {"status": "success", "result": {"time": "<formatted time string>"}}
+            - On error: {"status": "error", "error_message": "<error details>"}
+
+    Example:
+        >>> get_current_time("Mumbai", "Asia/Kolkata")
+        {
+            "status": "success", 
+            "result": {
+                "time": "The current time in Mumbai is 2024-02-14 13:45:30 IST+0530"
+            }
+        }
     """
 
     if city.lower() == "mumbai" or city.lower() == "delhi":
@@ -51,9 +70,30 @@ def get_current_time(city: str, timezone: str) -> dict:
             "status": "error",
             "error_message": f"Time for city {city} not found"
         }
+    
+search_agent = LlmAgent(
+    model='gemini-2.0-flash',
+    name='SearchAgent',
+    instruction="""
+    You're a specialist in Google Search
+    """,
+    tools=[google_search],
+)
+
+
+code_agent = LlmAgent(
+    name='CodeAgent',
+    model='gemini-2.0-flash',
+    executor=[BuiltInCodeExecutor],
+    instruction="""You are a calculator agent.
+    When given a mathematical expression, write and execute Python code to calculate the result.
+    Return only the final numerical result as plain text, without markdown or code blocks.
+    """,
+    description="Executes Python code to perform calculations.",
+)
 
 root_agent = LlmAgent(
-    name="weather_agent",
+    name="root_agent",
     model="gemini-2.0-flash",
     description=(
         "Agent to answer questions about the weather and timein a city."
@@ -64,7 +104,8 @@ root_agent = LlmAgent(
         "When calling the `get_weather` tool, only the `city` argument is required. "
         "If the city is not supported, return a helpful error message indicating that data is unavailable."
         "If the user asks for jokes, delegate the query to the `joke_agent` using transfer_to_agent."
+        "You have also have access to google search tool. You can use it to search the internet for information."
     ),
-    tools=[get_weather, get_current_time],
+    tools=[agent_tool.AgentTool(agent=search_agent),agent_tool.AgentTool(agent=code_agent),get_weather, get_current_time],
     sub_agents=[joke_agent]
 )
