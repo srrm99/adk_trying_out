@@ -3,8 +3,8 @@ from zoneinfo import ZoneInfo
 from google.adk.agents import LlmAgent
 from google.adk.tools import google_search
 from .joke_agent import joke_agent
+from .search_agent import search_agent
 from google.genai import types
-from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.tools import agent_tool
 
 def get_weather(city: str) -> dict:
@@ -70,27 +70,6 @@ def get_current_time(city: str, timezone: str) -> dict:
             "status": "error",
             "error_message": f"Time for city {city} not found"
         }
-    
-search_agent = LlmAgent(
-    model='gemini-2.0-flash',
-    name='SearchAgent',
-    instruction="""
-    You're a specialist in Google Search
-    """,
-    tools=[google_search],
-)
-
-
-code_agent = LlmAgent(
-    name='CodeAgent',
-    model='gemini-2.0-flash',
-    executor=[BuiltInCodeExecutor],
-    instruction="""You are a calculator agent.
-    When given a mathematical expression, write and execute Python code to calculate the result.
-    Return only the final numerical result as plain text, without markdown or code blocks.
-    """,
-    description="Executes Python code to perform calculations.",
-)
 
 root_agent = LlmAgent(
     name="root_agent",
@@ -106,6 +85,6 @@ root_agent = LlmAgent(
         "If the user asks for jokes, delegate the query to the `joke_agent` using transfer_to_agent."
         "You have also have access to google search tool. You can use it to search the internet for information."
     ),
-    tools=[agent_tool.AgentTool(agent=search_agent),agent_tool.AgentTool(agent=code_agent),get_weather, get_current_time],
+    tools=[agent_tool.AgentTool(agent=search_agent),get_weather, get_current_time],
     sub_agents=[joke_agent]
 )
