@@ -86,5 +86,5 @@ root_agent = LlmAgent(
         "You have also have access to google search tool. You can use it to search the internet for information."
     ),
     tools=[agent_tool.AgentTool(agent=search_agent),get_weather, get_current_time],
-    sub_agents=[joke_agent]
+    sub_agents=[joke_agent
 )
